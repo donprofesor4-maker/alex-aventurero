@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alex y Alexandra — el juego de tecleo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    background: linear-gradient(160deg, #4ec0e0 0%, #2f8fd6 55%, #1f6fad 100%);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 12px; color: #21425c;
+  }
+  .game {
+    width: 100%; max-width: 880px; min-height: 560px;
+    background: #fff6e3; border-radius: 28px;
+    border: 6px solid #ffc93c; box-shadow: 0 14px 40px rgba(0,0,0,.28);
+    padding: 18px 22px; display: flex; flex-direction: column; gap: 12px;
+    position: relative;
+  }
+  h1 { text-align: center; font-size: 2rem; color: #e85a2a; letter-spacing: .5px; }
+  h1 .emo { font-size: 1.6rem; }
+  .sub { text-align: center; font-size: 1.15rem; color: #4a3208; font-weight: bold; }
+  .sub b { color: #e85a2a; }
+  .progress {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.1rem; font-weight: bold; color: #4a3208;
+  }
+  .dots { display: flex; gap: 8px; flex: 1; }
+  .dot {
+    flex: 1; height: 16px; border-radius: 10px;
+    background: #e8d8b0; border: 2px solid #c9a960;
+  }
+  .dot.on { background: #7bc85b; border-color: #4e9a33; }
+  .scene {
+    flex: 1; border-radius: 22px; position: relative; overflow: hidden;
+    background: linear-gradient(#bfe8ff 0%, #dff6d8 60%, #9ed178 100%);
+    min-height: 250px;
+  }
+  .scene.box { background: linear-gradient(#7b6f9e, #4a3f6e 70%); }
+  .scene.cave { background: linear-gradient(#3d3550, #251f38 75%); }
+  .scene.water { background: linear-gradient(#aee3ff, #4fb3e8 70%); }
+  .scene.gold { background: linear-gradient(#fff3c0, #ffd97a 70%); }
+  .scene.dragon { background: linear-gradient(#8a4a3a, #4a2418 72%); }
+  .scene.mar { background: linear-gradient(#aee3ff, #2f8fd6 72%); }
+  .scene.montana { background: linear-gradient(#cfe8c8, #8fb474 72%); }
+  .scene.castillo { background: linear-gradient(#98a6c9, #5a6890 72%); }
+  .scene.casa { background: linear-gradient(#ffe9b0, #f8d98a 72%); }
+
+  .floor {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+    background: #7a9e4a; border-top: 6px solid #5d7c37;
+  }
+  .scene.box .floor, .scene.cave .floor { background: #4a3f30; border-top-color: #332b1f; }
+  .scene.water .floor { background: #d8b06e; border-top-color: #be9450; }
+  .scene.gold .floor { background: #e0b64c; border-top-color: #c79a36; }
+  .scene.dragon .floor { background: #6b4126; border-top-color: #4a2c18; }
+  .scene.mar .floor { background: #e8c98a; border-top-color: #c9a960; }
+  .scene.montana .floor { background: #9db86a; border-top-color: #7a9a4a; }
+  .scene.castillo .floor { background: #8a7a6a; border-top-color: #66584a; }
+  .scene.casa .floor { background: #c9a960; border-top-color: #a87f3e; }
+
+  .amb { position: absolute; font-size: 2rem; opacity: .9; user-select: none; }
+  .scene.dragon .amb, .scene.cave .amb, .scene.box .amb { opacity: .18; }
+  .branch { position: absolute; top: 32px; left: 14px; width: 74px; height: 7px; background: #8a5a2b; border-radius: 4px; }
+  .branch + span { position: relative; z-index: 1; }
+  .stem { position: absolute; bottom: -16px; left: 50%; width: 5px; height: 15px; background: #5d7c37; transform: translateX(-50%); border-radius: 2px; }
+  .target-flag {
+    position: absolute; right: 18px; bottom: 26px; font-size: 2.2rem;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,.2));
+  }
+  .char {
+    position: absolute; bottom: 22px; left: 12px; font-size: 2.6rem;
+    transition: left .35s ease; filter: drop-shadow(0 3px 2px rgba(0,0,0,.2));
+    line-height: 1;
+  }
+  .char img { height: 58px; width: auto; display: block; }
+  .char.front { z-index: 6; }
+  .char.off { opacity: .45; z-index: 4; }
+  .char.bounce { animation: bounce .5s ease; }
+  @keyframes bounce {
+    0%{transform:translateY(0)} 40%{transform:translateY(-22px)} 100%{transform:translateY(0)}
+  }
+  .props { position: absolute; inset: 0; pointer-events: none; }
+  .prop { position: absolute; font-size: 2rem; opacity: 0; transition: opacity .6s ease; }
+  .prop.show { opacity: 1; }
+  .shake { animation: shake .25s ease; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)}
+    50%{transform:translateX(6px)} 75%{transform:translateX(-4px)}
+  }
+
+  .sentence {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px;
+    background: #fff; border: 4px solid #ffc93c; border-radius: 18px;
+    padding: 16px 12px; font-size: 1.7rem; min-height: 92px;
+  }
+  .word { display: flex; gap: 2px; }
+  .ch { font-weight: 800; color: #a08c66; text-transform: uppercase; }
+  .ch.done { color: #2e8b1e; }
+  .ch.cur { color: #e85a2a; border-bottom: 4px solid #e85a2a; border-radius: 2px; animation: blink 1s infinite; }
+  .ch.cur.bad { color: #c0392b; border-bottom-color: #c0392b; }
+  @keyframes blink { 50% { opacity: .45; } }
+  .gsp { width: 14px; border-bottom: 3px dotted #c9a960; display: inline-block; }
+  .gsp.done { border-bottom-color: #2e8b1e; }
+  .gsp.cur { border-bottom-color: #e85a2a; animation: blink 1s infinite; }
+
+  .bar { height: 12px; border-radius: 8px; background: #e8d8b0; border: 2px solid #c9a960; overflow: hidden; }
+  .bar > div { height: 100%; width: 0%; background: #7bc85b; transition: width .25s ease; }
+
+  .controls {
+    display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+  }
+  button, .btn {
+    font: inherit; font-weight: bold; border: none; border-radius: 16px;
+    padding: 12px 22px; font-size: 1.15rem; cursor: pointer;
+    background: #ffd166; color: #7a4b12; box-shadow: 0 4px 0 #cf9e2e;
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  button:active, .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #cf9e2e; }
+  button.primary { background: #f26d3d; color: #fff; box-shadow: 0 4px 0 #b94c24; }
+  button.sound { background: #7bc85b; color: #fff; box-shadow: 0 4px 0 #4e9a33; font-size: 1.05rem; }
+  .hint { text-align: center; font-size: 1.05rem; font-weight: bold; color: #4a3208; }
+
+  .overlay {
+    position: absolute; inset: 0; background: rgba(46,64,90,.92); z-index: 20;
+    display: none; align-items: center; justify-content: center; border-radius: 28px;
+    flex-direction: column; gap: 16px; text-align: center; padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .overlay h2 { font-size: 1.9rem; color: #ffd166; }
+  .overlay p { font-size: 1.2rem; color: #fff; max-width: 420px; }
+  .overlay .big { font-size: 3.2rem; }
+  .overlay .big-row { display: flex; gap: 14px; align-items: center; }
+  .overlay .big-row img { height: 72px; width: auto; filter: drop-shadow(0 3px 2px rgba(0,0,0,.25)); }
+
+  .confetti { position: absolute; width: 10px; height: 14px; border-radius: 2px; z-index: 15; pointer-events: none; top: -20px; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(620px) rotate(720deg); opacity: 0; } }
+
+  .start-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .name-input {
+    font: inherit; font-size: 1.3rem; border: 3px solid #ffc93c; border-radius: 14px;
+    padding: 10px 14px; text-align: center; max-width: 260px; outline: none;
+  }
+  .name-input:focus { border-color: #f26d3d; }
+  .start-wrap label { color: #fff; font-weight: bold; font-size: 1.1rem; }
+  @media (max-width: 560px) {
+    .sentence { font-size: 1.3rem; }
+    h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="game" id="game">
+  <div class="overlay" id="overlay">
+    <div class="big" id="ovEmoji">🎉</div>
+    <h2 id="ovTitle">¡Bien hecho!</h2>
+    <p id="ovText"></p>
+    <button class="primary" id="ovBtn">Siguiente ➜</button>
+  </div>
+
+  <h1><span class="emo">👧</span> Alex y Alexandra <span class="emo">🧒</span></h1>
+  <p class="sub" id="turno"></p>
+
+  <div class="progress">
+    <span id="pageLabel">Página 1</span>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <div class="bar"><div id="fillBar"></div></div>
+
+  <div class="scene" id="scene">
+    <div class="floor"></div>
+    <div class="amb" style="left:6%;top:14%">🌳</div>
+    <div class="amb" style="left:78%;top:10%">🌲</div>
+    <div class="amb" style="left:52%;top:24%">☁️</div>
+    <div class="amb" style="left:16%;top:32%"><div class="branch"></div><span>🦉</span></div>
+    <div class="amb" style="left:88%;bottom:34px;font-size:1.5rem"><span>🌸</span><div class="stem"></div></div>
+    <div class="target-flag" id="flag">⛳</div>
+    <div class="char" id="char0">👧</div>
+    <div class="char" id="char1">🧒</div>
+    <div class="props">
+      <div class="prop" style="left:22%;bottom:52px">🐸</div>
+      <div class="prop" style="left:60%;bottom:56px">🔑</div>
+      <div class="prop" style="left:16%;bottom:54px">💰</div>
+      <div class="prop" style="left:70%;bottom:58px">💎</div>
+    </div>
+  </div>
+
+  <div class="sentence" id="sentence"></div>
+
+  <div class="controls">
+    <button class="sound" id="listen">🔊 escuchar</button>
+    <button id="restart">↻ otra vez</button>
+  </div>
+  <p class="hint">toca cada letra. si te equivocas no pasa nada, ¡sigue! 💪</p>
+</div>
+
+<script>
+const GAME = {
+  pages: [
+    { scene:"forest",   sentence:"alex camina en el bosque",    flag:"🌳", props:{} },
+    { scene:"water",    sentence:"el sapo salta y salta",       flag:"🪷", props:{} },
+    { scene:"cave",     sentence:"alex encuentra una llave",    flag:"🔦", props:{} },
+    { scene:"box",      sentence:"abre el cofre de oro",        flag:"🧰", props:{} },
+    { scene:"gold",     sentence:"encuentra el gran tesoro",    flag:"👑", props:{} },
+    { scene:"dragon",   sentence:"el dragon duerme con el oro", flag:"🐲", props:{} },
+    { scene:"mar",      sentence:"el barco navega en el mar",   flag:"⛵", props:{} },
+    { scene:"montana",  sentence:"alex sube a la montana",      flag:"🏔️", props:{} },
+    { scene:"castillo", sentence:"la llave abre el castillo",   flag:"🏰", props:{} },
+    { scene:"casa",     sentence:"alex llega a su casa",        flag:"🏠", props:{} }
+  ]
+};
+
+const PROPS_SHOW = [
+  [true,false,false,false],
+  [true,false,false,false],
+  [false,true,false,false],
+  [false,false,true,false],
+  [false,false,false,true],
+  [false,false,true,true],
+  [false,false,false,true],
+  [false,false,false,false],
+  [false,true,false,false],
+  [true,false,false,true]
+];
+const HALF = 5;
+
+const players = [
+  { name: "Alexandra", imgs: [], celebrate: null, shape: "👧" },
+  { name: "Alex",      imgs: [], celebrate: null, shape: "🧒" }
+];
+
+const el = {
+  overlay: document.getElementById("overlay"),
+  ovEmoji: document.getElementById("ovEmoji"),
+  ovTitle: document.getElementById("ovTitle"),
+  ovText: document.getElementById("ovText"),
+  ovBtn: document.getElementById("ovBtn"),
+  pageLabel: document.getElementById("pageLabel"),
+  dots: document.getElementById("dots"),
+  fillBar: document.getElementById("fillBar")?.firstElementChild || document.getElementById("fillBar"),
+  scene: document.getElementById("scene"),
+  flag: document.getElementById("flag"),
+  chars: [document.getElementById("char0"), document.getElementById("char1")],
+  turno: document.getElementById("turno"),
+  sentence: document.getElementById("sentence"),
+  listen: document.getElementById("listen"),
+  restart: document.getElementById("restart"),
+  props: [...document.querySelectorAll(".prop")]
+};
+
+const SCENES = ["forest","water","cave","box","gold","dragon","mar","montana","castillo","casa"];
+
+let page = 0;
+let li = 0;
+let stepped = 0;
+let playing = false;
+let active = 0;
+let els = [];
+let frameIdx = 0;
+
+function probe(src){
+  return new Promise(res=>{
+    const im = new Image();
+    im.onload = () => res(src);
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+}
+
+async function collect(prefix){
+  const found = [];
+  for (const f of [prefix + ".png", prefix + "-2.png", prefix + "-3.png"]){
+    const src = await probe("assets/" + f);
+    if (src) found.push(src);
+  }
+  return found;
+}
+
+async function initChars(){
+  players[0].imgs = await collect("alexandra");
+  players[0].celebrate = await probe("assets/alexandra-fiesta.png");
+  players[1].imgs = await collect("alex");
+  players[1].celebrate = await probe("assets/alex-fiesta.png");
+  drawChars();
+  refreshStart();
+  refreshChar();
+}
+
+function setCharImg(c, src){
+  if (src){
+    if (!c._img){
+      c.innerHTML = "";
+      c._img = document.createElement("img");
+      c._img.className = "char-img";
+      c.appendChild(c._img);
+    }
+    c._img.src = src;
+  } else {
+    if (c._img){ c.innerHTML = c._fallback; c._img = null; }
+  }
+}
+
+function drawChars(){
+  el.chars.forEach((c,i)=>{
+    c._fallback = players[i].shape;
+    setCharImg(c, players[i].imgs[0] || null);
+  });
+}
+
+function refreshStart(){
+  const a = document.getElementById("sc0"), b = document.getElementById("sc1");
+  if (a){ a._fallback = players[0].shape; setCharImg(a, players[0].imgs[0] || null); }
+  if (b){ b._fallback = players[1].shape; setCharImg(b, players[1].imgs[0] || null); }
+}
+
+function stepActive(){
+  const imgs = players[active].imgs;
+  setCharImg(el.chars[active], imgs.length ? imgs[frameIdx % imgs.length] : null);
+}
+
+function celebrateActive(){
+  setCharImg(el.chars[active], players[active].celebrate || null);
+}
+
+function setScene(cls){
+  for (const c of SCENES) el.scene.classList.remove(c);
+  el.scene.classList.add(cls);
+}
+
+function buildDots(){
+  el.dots.innerHTML = "";
+  GAME.pages.forEach((_,i)=>{
+    const d = document.createElement("div");
+    d.className = "dot" + (i < page ? " on" : "");
+    el.dots.appendChild(d);
+  });
+}
+
+function keysOf(){ return GAME.pages[page].sentence.split(""); }
+
+function renderSentence(){
+  const words = GAME.pages[page].sentence.split(" ");
+  els = [];
+  el.sentence.innerHTML = "";
+  words.forEach((w, wi)=>{
+    const word = document.createElement("span");
+    word.className = "word";
+    for (const k of w){
+      const sp = document.createElement("span");
+      sp.className = "ch";
+      sp.textContent = k;
+      word.appendChild(sp);
+      els.push(sp);
+    }
+    el.sentence.appendChild(word);
+    if (wi < words.length - 1){
+      const gsp = document.createElement("span");
+      gsp.className = "gsp";
+      gsp.innerHTML = "&nbsp;";
+      gsp.title = "espacio";
+      el.sentence.appendChild(gsp);
+      els.push(gsp);
+    }
+  });
+  els.forEach((sp,i)=>{
+    if (i < li) sp.classList.add("done");
+    else if (i === li && playing) sp.classList.add("cur");
+  });
+}
+
+function speak(text){
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "es-MX"; u.rate = 0.85; u.pitch = 1.1;
+  window.speechSynthesis.speak(u);
+}
+
+function wordAt(){
+  const words = GAME.pages[page].sentence.split(" ");
+  let acc = 0;
+  for (const w of words){
+    if (li <= acc + w.length) return w;
+    acc += w.length + 1;
+  }
+  return GAME.pages[page].sentence;
+}
+
+function speakNow(){
+  const w = wordAt();
+  if (w && w.length <= 9) speak(w);
+  else speak(GAME.pages[page].sentence);
+}
+
+function totalChars(){
+  return GAME.pages[page].sentence.length;
+}
+
+function curChar(){
+  if (li >= totalChars()) return null;
+  return keysOf()[li];
+}
+
+function refreshChar(){
+  const target = el.scene.clientWidth - 76;
+  const pct = stepped / totalChars();
+  const on = el.chars[active], off = el.chars[1 - active];
+  on.classList.add("front"); on.classList.remove("off");
+  off.classList.remove("front"); off.classList.add("off");
+  on.style.left = (12 + pct * (target - 12)) + "px";
+  if (active === 1) el.chars[0].style.left = target + "px";
+  else el.chars[1].style.left = "12px";
+  el.fillBar.style.width = Math.round(pct*100) + "%";
+}
+
+function showProps(list){
+  list.forEach((v,i)=> el.props[i].classList.toggle("show", !!v));
+}
+
+function startSentence(){
+  active = page < HALF ? 0 : 1;
+  li = 0; stepped = 0; playing = true; frameIdx = 0;
+  setScene(GAME.pages[page].scene);
+  el.flag.textContent = GAME.pages[page].flag;
+  showProps(PROPS_SHOW[page]);
+  el.turno.innerHTML = "escribe la oración para que avance <b>" + players[active].name + "</b>";
+  el.chars[0].style.left = "12px";
+  el.chars[1].style.left = "12px";
+  el.fillBar.style.width = "0%";
+  renderSentence();
+  drawChars();
+  refreshChar();
+  stepActive();
+}
+
+function nextPage(){
+  page++;
+  const switched = (page === HALF);
+  active = page < HALF ? 0 : 1;
+  if (page >= GAME.pages.length){
+    el.overlay.classList.add("show");
+    el.ovEmoji.textContent = "🏆";
+    el.ovTitle.textContent = "¡Lo lograron, " + players[0].name + " y " + players[1].name + "!";
+    el.ovText.textContent = "completaron la aventura. ¡son unos grandes exploradores!";
+    el.ovBtn.textContent = "jugar otra vez";
+    spawnConfetti(80);
+    return;
+  }
+  buildDots();
+  el.pageLabel.textContent = "Página " + (page+1);
+  el.overlay.classList.add("show");
+  if (switched){
+    el.ovEmoji.textContent = "🏃";
+    el.ovTitle.textContent = "¡le toca a " + players[1].name + "!";
+    el.ovText.textContent = players[0].name + " ya hizo su parte. ahora tú, " + players[1].name;
+    el.ovBtn.textContent = "¡ya voy! ➜";
+  } else {
+    const p = players[active];
+    el.ovEmoji.textContent = "🎉";
+    el.ovTitle.textContent = "¡bien hecho, " + p.name + "!";
+    el.ovText.textContent = "acompaña a " + p.name + " al siguiente lugar";
+    el.ovBtn.textContent = "siguiente ➜";
+  }
+}
+
+function wrongKey(){
+  if (li >= els.length) return;
+  els[li].classList.add("bad");
+  const s = document.getElementById("sentence");
+  s.classList.remove("shake"); void s.offsetWidth; s.classList.add("shake");
+  const c = el.chars[active];
+  c.classList.remove("bounce"); void c.offsetWidth; c.classList.add("bounce");
+}
+
+function goodKey(){
+  if (li >= els.length) return;
+  els[li].classList.remove("bad","cur");
+  els[li].classList.add("done");
+  li++; stepped++; frameIdx++;
+  if (els[li]) els[li].classList.add("cur");
+  refreshChar();
+  stepActive();
+  if (li >= totalChars()) finishSentence();
+}
+
+function onKey(ev){
+  if (!playing || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.key.length !== 1) return;
+  ev.preventDefault();
+  const target = curChar();
+  if (target == null) return;
+  if (ev.key === target){ goodKey(); }
+  else { wrongKey(); }
+}
+
+function finishSentence(){
+  playing = false;
+  const c = el.chars[active];
+  c.classList.remove("bounce"); void c.offsetWidth; c.classList.add("bounce");
+  celebrateActive();
+  spawnConfetti(26);
+  setTimeout(nextPage, 900);
+}
+
+function spawnConfetti(n){
+  const colors = ["#ff5d5d","#ffd166","#7bc85b","#5da9ff","#c77bff","#ff9ecb"];
+  for (let i=0;i<n;i++){
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.left = (10+Math.random()*80) + "%";
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.animationDuration = (1.4+Math.random()*1.4) + "s";
+    c.style.animationDelay = (Math.random()*0.5) + "s";
+    document.getElementById("game").appendChild(c);
+    setTimeout(()=> c.remove(), 3200);
+  }
+}
+
+el.ovBtn.addEventListener("click", ()=>{
+  el.ovBtn.blur();
+  el.overlay.classList.remove("show");
+  if (page >= GAME.pages.length){
+    page = 0; buildDots(); el.pageLabel.textContent = "Página 1"; startSentence();
+  } else {
+    startSentence();
+  }
+});
+
+el.listen.addEventListener("click", ()=>{ el.listen.blur(); speakNow(); });
+el.sentence.addEventListener("click", speakNow);
+el.restart.addEventListener("click", ()=>{
+  el.restart.blur();
+  page = 0; buildDots(); el.pageLabel.textContent = "Página 1"; startSentence();
+});
+document.addEventListener("keydown", onKey);
+window.addEventListener("resize", refreshChar);
+
+const overlayInit = document.createElement("div");
+overlayInit.className = "overlay show";
+overlayInit.innerHTML = `
+  <div class="big-row"><span class="big" id="sc0">👧</span><span class="big" id="sc1">🧒</span></div>
+  <h2>¡La aventura de Alex y Alexandra!</h2>
+  <div class="start-wrap">
+    <label>jugador 1</label>
+    <input class="name-input" id="name1" value="Alexandra" maxlength="16">
+    <label>jugador 2</label>
+    <input class="name-input" id="name2" value="Alex" maxlength="16">
+    <button class="primary" id="go">¡a jugar! 🌟</button>
+  </div>`;
+document.getElementById("game").appendChild(overlayInit);
+
+overlayInit.querySelector("#go").addEventListener("click", ()=>{
+  const n1 = overlayInit.querySelector("#name1").value.trim();
+  const n2 = overlayInit.querySelector("#name2").value.trim();
+  players[0].name = n1 || "Alexandra";
+  players[1].name = n2 || "Alex";
+  overlayInit.remove();
+  buildDots();
+  startSentence();
+});
+overlayInit.querySelector("#name2").addEventListener("keydown",(e)=>{
+  if (e.key === "Enter") overlayInit.querySelector("#go").click();
+});
+initChars();
+</script>
+</body>
+</html>
